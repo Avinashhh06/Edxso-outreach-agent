@@ -1,0 +1,50 @@
+# All business rules live here. Edit, then re-run `python main.py run`.
+company:
+  name: EDXSO
+  website: https://www.edxso.com/
+  sender_name: Avinash Sharma
+  sender_first_name: Avinash
+  sender_title: Marketing Team
+
+campaign:
+  # Used in prompts/templates. Change to match the real campaign (sponsorship, affiliate, UGC, barter...).
+  collab_angle: a paid collaboration
+  value_proposition: a creator-friendly partnership with clear deliverables and fair compensation
+  call_to_action: share your collaboration preferences, rates and availability
+  optout_line: If this isn't relevant, just reply and we won't contact you again.
+
+filters:
+  # Categories to evaluate as the "complete filtering category". Any of the 9 dataset niches.
+  active_categories: [Parenting]
+  allowed_platforms: [Instagram, YouTube]
+  followers_min: 5000
+  followers_max: 100000
+  min_engagement_rate: 0.2      # percent. Tune to your brand needs.
+  max_fake_follower_pct: 30     # parsed from Notes ("xx% fake followers"); only applied when present
+  allowed_countries: []         # empty = any country. Unknown country is never a failure unless below is true.
+  require_known_country: false
+  # Notes patterns that mark a profile as not an individual creator -> brand-fit fail
+  exclude_note_patterns:
+    - "Editorial/inspiration account"
+
+# Keywords matched (case-insensitive) against "Content Themes" for content-relevance check.
+category_keywords:
+  Fintech: [finance, invest, money, stock, ipo, mutual fund, insurance, wealth]
+  Crypto: [crypto, bitcoin, blockchain]
+  Fitness: [running, fitness, triathlon, workout, physio, training]
+  Beauty: [hair, beauty, makeup, skincare, braid]
+  Fashion: [fashion, sneaker, shoe, bridal, jewellery, style]
+  Parenting: [mom, mother, motherhood, parenting, family, kids, grandparent]
+  Gaming: [gaming, games, streaming]
+  Technology: [tech, science, gadget, android]
+  Lifestyle: [lifestyle, vlog, travel, entertainment]
+
+personalization:
+  max_retries: 3
+  email_words: [60, 90]
+  dm_words: [15, 30]
+
+sending:
+  daily_cap: 20
+  delay_seconds: 3
+  block_caution_emails: true    # emails flagged as agency/editorial/unconfirmed are not auto-sent

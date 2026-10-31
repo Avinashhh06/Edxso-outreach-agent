@@ -1,0 +1,7 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {"name": "Agent: run pipeline", "type": "debugpy", "request": "launch", "program": "${workspaceFolder}/main.py", "args": ["run"], "console": "integratedTerminal"},
+    {"name": "API server", "type": "debugpy", "request": "launch", "module": "uvicorn", "args": ["outreach.api:app", "--reload"], "console": "integratedTerminal"}
+  ]
+}

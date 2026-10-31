@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EDXSO Outreach Agent</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--mut:#666;--bd:#ddd;--ok:#157f3b;--bad:#b3261e;--acc:#2f5bea}
+@media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#eee;--mut:#9a9a9a;--bd:#333;--ok:#4cc27a;--bad:#ff7b72;--acc:#7a9bff}}
+body{font:14px/1.45 system-ui,sans-serif;margin:0;background:var(--bg);color:var(--fg)}
+header{padding:14px 20px;border-bottom:1px solid var(--bd);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0;margin-right:auto}
+nav button,.btn{background:none;border:1px solid var(--bd);color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer}
+nav button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+main{padding:20px;max-width:1200px;margin:auto}
+table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}
+th,td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:600}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.mut{color:var(--mut)}
+.card{border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:12px}
+pre{white-space:pre-wrap;margin:6px 0;font:13px/1.5 ui-monospace,monospace}
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}.kpis div{border:1px solid var(--bd);border-radius:8px;padding:10px 16px;min-width:120px}
+.kpis b{display:block;font-size:22px}
+</style></head><body>
+<header><h1>EDXSO Outreach Agent</h1>
+<nav id="nav"></nav>
+<button class="btn" onclick="runPipe()">Run pipeline</button></header>
+<main id="main">Loading…</main>
+<script>
+const tabs=['Overview','Influencers','Review','Tracker','DM queue'];let cur='Overview';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(p,o){const r=await fetch('/api'+p,o&&{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)});if(!r.ok){const t=await r.json().catch(()=>({}));throw new Error(t.detail||r.statusText)}return r.json()}
+function nav(){$('#nav').innerHTML=tabs.map(t=>`<button class="${t==cur?'on':''}" onclick="go('${t}')">${t}</button>`).join(' ')}
+async function go(t){cur=t;nav();const m=$('#main');try{m.innerHTML=await views[t]()}catch(e){m.innerHTML='<p class="bad">'+esc(e.message)+'</p>'}}
+async function runPipe(){$('#main').innerHTML='Running…';try{const r=await api('/pipeline/run',{});alert(r.log.join('\n'))}catch(e){alert(e.message)}go(cur)}
+async function rv(id,st){await api('/messages/'+id+'/review',{status:st});go('Review')}
+async function send(){try{const r=await api('/send',{});alert(JSON.stringify(r,null,1))}catch(e){alert(e.message)}go('Review')}
+async function dmSent(id){await api('/dm/'+id+'/mark-sent',{});go('DM queue')}
+const table=(h,rows)=>'<table><tr>'+h.map(x=>'<th>'+x+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</table>';
+const views={
+async Overview(){const s=await api('/status');const k=(a,b)=>`<div><b>${esc(b)}</b>${a}</div>`;
+ return `<div class="kpis">${k('Discovered',s.influencers)}${k('Passed',s.classified.PASSED||0)}${k('Failed',s.classified.FAILED||0)}${k('Shortlisted',s.shortlisted)}${k('Pending review',s.messages.pending||0)}${k('Approved',s.messages.approved||0)}</div>
+ <p class="mut">LLM: <b>${esc(s.llm_provider)}</b> · Send mode: <b>${esc(s.send_mode)}</b> (dry_run = nothing is transmitted)</p>
+ <p class="mut">Flow: Discovery → Filtering → Enrichment → Personalization → <b>Review</b> → Sending → Tracking</p>`},
+async Influencers(){const d=await api('/influencers');return table(['ID','Name','Platform','Followers','ER %','Niche','Email','Status','Reason'],
+ d.map(i=>[i.influencer_id,esc(i.name),i.platform,i.followers.toLocaleString(),i.engagement_rate,i.niche,esc(i.email),`<span class="${i.filter_status=='PASSED'?'ok':'bad'}">${i.filter_status}</span>`,`<span class="mut">${esc(i.reasons)}</span>`]))},
+async Review(){const d=await api('/messages');if(!d.length)return '<p>No messages yet. Click “Run pipeline”.</p>';
+ return '<p><button class="btn" onclick="send()">Send / simulate approved emails</button></p>'+d.map(m=>`<div class="card"><b>${esc(m.name)}</b> · ${esc(m.contact_email)} · <span class="${m.review_status=='approved'?'ok':m.review_status=='rejected'?'bad':'mut'}">${m.review_status}</span>
+ <div class="mut">${esc(m.generator)} — ${esc(m.validation)}</div><b>${esc(m.email_subject)}</b><pre>${esc(m.email_body)}</pre><b>Instagram DM</b><pre>${esc(m.dm_text)}</pre>
+ <button class="btn" onclick="rv('${m.influencer_id}','approved')">Approve</button> <button class="btn" onclick="rv('${m.influencer_id}','rejected')">Reject</button></div>`).join('')},
+async Tracker(){const d=await api('/tracker');return table(Object.keys(d[0]||{Influencer:1}),d.map(r=>Object.values(r).map(esc)))},
+async['DM queue'](){const d=await api('/dm-queue');if(!d.length)return '<p>No approved DMs yet. Approve messages in Review.</p>';
+ return '<p class="mut">Instagram DMs are never automated. Open the profile, paste the DM, send manually, then mark it sent.</p>'+d.map(x=>`<div class="card"><b>${esc(x.name)}</b> · <a href="${esc(x.profile_url)}" target="_blank" rel="noopener">profile</a> · ${x.status}<pre>${esc(x.dm_text)}</pre>
+ <button class="btn" onclick="navigator.clipboard.writeText(${esc(JSON.stringify(x.dm_text)).replace(/'/g,'&#39;')})">Copy DM</button> <button class="btn" onclick="dmSent('${x.influencer_id}')">Mark sent</button></div>`).join('')}
+};
+nav();go('Overview');
+</script></body></html>
